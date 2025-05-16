@@ -1,30 +1,121 @@
-/* Custom Styles */
-.gradient-bg {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --purple-500: #8b5cf6;
+    --purple-600: #7c3aed;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
+    --indigo-500: #6366f1;
+    --indigo-600: #4f46e5;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
 }
 
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
+    color: white;
+    overflow-x: hidden;
+}
+
+/* Animated Background */
+.particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: -1;
+}
+
+.particles::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 30%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+    animation: float 20s infinite ease-in-out;
+}
+
+.particles::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.05)"/></svg>');
+    background-size: 2px 2px;
+    opacity: 0.2;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+    25% {
+        transform: translate(-5%, 5%);
+    }
+    50% {
+        transform: translate(5%, -5%);
+    }
+    75% {
+        transform: translate(-5%, -5%);
+    }
+}
+
+/* Card Hover Effects */
 .card-hover:hover {
     transform: translateY(-5px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 20px 25px -5px rgba(165, 180, 252, 0.1), 0 10px 10px -5px rgba(165, 180, 252, 0.04);
 }
 
-.transition-all {
-    transition: all 0.3s ease;
+/* Button Glow Effect */
+.glow-on-hover {
+    position: relative;
+    overflow: hidden;
 }
 
-/* Toast notification */
+.glow-on-hover::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: 0.5s;
+}
+
+.glow-on-hover:hover::before {
+    left: 100%;
+}
+
+/* Toast Notification */
 .toast {
     position: fixed;
     top: 20px;
     right: 20px;
     padding: 12px 24px;
-    background-color: #4c51bf;
+    background-color: rgba(76, 81, 191, 0.9);
     color: white;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     z-index: 1000;
     transform: translateX(200%);
     transition: transform 0.3s ease;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .toast.show {
@@ -32,10 +123,10 @@
 }
 
 .toast.error {
-    background-color: #f56565;
+    background-color: rgba(239, 68, 68, 0.9);
 }
 
-/* Loading spinner */
+/* Loading Spinner */
 .spinner {
     display: inline-block;
     width: 20px;
@@ -50,27 +141,144 @@
     to { transform: rotate(360deg); }
 }
 
-/* Animation classes */
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-in;
+/* Pulse Animation */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+.pulse {
+    animation: pulse 2s infinite;
 }
 
-/* Responsive adjustments */
+/* Floating Animation */
+@keyframes float-up {
+    0% {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.float-up {
+    animation: float-up 0.5s ease-out forwards;
+}
+
+/* Gradient Text */
+.gradient-text {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(31, 41, 55, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.5);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.7);
+}
+
+/* Responsive Adjustments */
 @media (max-width: 768px) {
     .grid-cols-1 {
         grid-template-columns: 1fr;
     }
     
-    .md\:grid-cols-3 {
-        grid-template-columns: repeat(1, 1fr);
+    .md\:grid-cols-3, .lg\:grid-cols-3 {
+        grid-template-columns: 1fr;
     }
     
     .lg\:grid-cols-2 {
         grid-template-columns: 1fr;
     }
+    
+    #studyForm {
+        grid-template-columns: 1fr;
+    }
 }
+
+/* Special Effects for Timers */
+.timer-display {
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+.active-timer {
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.5);
+}
+
+/* Custom Checkbox */
+.custom-checkbox {
+    position: relative;
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background-color: rgba(31, 41, 55, 0.7);
+    border: 2px solid rgba(139, 92, 246, 0.7);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.custom-checkbox::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background-color: var(--purple-500);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+input[type="checkbox"]:checked + .custom-checkbox::after {
+    opacity: 1;
+}
+
+/* Tooltip */
+.tooltip {
+    position: relative;
+}
+
+.tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(31, 41, 55, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    z-index: 10;
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+                           }
