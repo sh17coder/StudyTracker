@@ -22,13 +22,26 @@ const elements = {
     viewCodeBtn: document.getElementById('viewCodeBtn'),
     viewOthersContainer: document.getElementById('viewOthersContainer'),
     studyForm: document.getElementById('studyForm'),
-    subjectSelect: document.getElementById('subjectSelect'),
+    subjectInput: document.getElementById('subjectInput'),
     durationInput: document.getElementById('durationInput'),
     dateInput: document.getElementById('dateInput'),
-    todayHours: document.getElementById('todayHours'),
-    todayComparison: document.getElementById('todayComparison'),
-    weekHours: document.getElementById('weekHours'),
-    weekComparison: document.getElementById('weekComparison')
+    todayGoalText: document.getElementById('todayGoalText'),
+    weekGoalText: document.getElementById('weekGoalText'),
+    todayProgress: document.getElementById('todayProgress'),
+    weekProgress: document.getElementById('weekProgress'),
+    stopwatchDisplay: document.getElementById('stopwatchDisplay'),
+    startStopwatch: document.getElementById('startStopwatch'),
+    pauseStopwatch: document.getElementById('pauseStopwatch'),
+    resetStopwatch: document.getElementById('resetStopwatch'),
+    stopwatchSubjectInput: document.getElementById('stopwatchSubjectInput'),
+    saveStopwatch: document.getElementById('saveStopwatch'),
+    pomodoroDisplay: document.getElementById('pomodoroDisplay'),
+    startPomodoro: document.getElementById('startPomodoro'),
+    pausePomodoro: document.getElementById('pausePomodoro'),
+    resetPomodoro: document.getElementById('resetPomodoro'),
+    pomodoroStatus: document.getElementById('pomodoroStatus'),
+    workTime: document.getElementById('workTime'),
+    breakTime: document.getElementById('breakTime')
 };
 
 // Chart instances
@@ -37,6 +50,23 @@ let charts = {
     week: null,
     daily: null,
     subject: null
+};
+
+// Timer variables
+let stopwatch = {
+    running: false,
+    startTime: 0,
+    elapsedTime: 0,
+    timerInterval: null
+};
+
+let pomodoro = {
+    running: false,
+    isWorkTime: true,
+    timeLeft: 25 * 60,
+    timerInterval: null,
+    workDuration: 25,
+    breakDuration: 5
 };
 
 // Previous data for comparison
@@ -50,18 +80,14 @@ function initApp() {
     // Set today's date as default
     const today = new Date();
     elements.dateInput.valueAsDate = today;
+    elements.dateInput.value = today.toISOString().split('T')[0];
     
-    // Format date as YYYY-MM-DD
-    const formattedDate = today.toISOString().split('T')[0];
-    elements.dateInput.value = formattedDate;
-    
-    // Auth state listener
+    // Set up auth state listener
     auth.onAuthStateChanged(user => {
         if (user) {
             // User is signed in
             showDashboard();
-            generateShareCode(user.uid);
-            loadUserData(user.uid);
+            initializeUserData(user.uid);
         } else {
             // User is signed out
             showAuthSection();
@@ -70,6 +96,10 @@ function initApp() {
     
     // Set up event listeners
     setupEventListeners();
+    
+    // Initialize timers
+    initStopwatch();
+    initPomodoro();
 }
 
 // Show dashboard and hide auth section
@@ -78,6 +108,7 @@ function showDashboard() {
     elements.dashboard.classList.remove('hidden');
     elements.authBtn.textContent = 'Sign Out';
     elements.shareBtn.classList.remove('hidden');
+    document.title = "StudyTrack - Dashboard";
 }
 
 // Show auth section and hide dashboard
@@ -86,6 +117,16 @@ function showAuthSection() {
     elements.dashboard.classList.add('hidden');
     elements.authBtn.textContent = 'Sign In';
     elements.shareBtn.classList.add('hidden');
+    document.title = "StudyTrack - Welcome";
+}
+
+// Initialize user data and set up listeners
+function initializeUserData(uid) {
+    // Generate or get share code
+    generateShareCode(uid);
+    
+    // Load study sessions
+    loadStudySessions(uid);
 }
 
 // Generate or retrieve user's share code
@@ -132,8 +173,8 @@ function generateRandomCode(length) {
     return result;
 }
 
-// Load user data and set up real-time listener
-function loadUserData(uid) {
+// Load study sessions and set up real-time listener
+function loadStudySessions(uid) {
     // Set up real-time listener for study sessions
     dbRef.child('studySessions')
         .orderByChild('userId')
@@ -157,10 +198,15 @@ function loadUserData(uid) {
 
 // Initialize empty charts
 function initEmptyCharts() {
-    charts.today = createDoughnutChart('todayChart', ['Completed', 'Remaining'], [0, 8], ['#4c51bf', '#e2e8f0']);
-    charts.week = createDoughnutChart('weekChart', ['Completed', 'Remaining'], [0, 40], ['#4299e1', '#e2e8f0']);
+    charts.today = createDoughnutChart('todayChart', ['Completed', 'Remaining'], [0, 8], ['#8B5CF6', '#374151']);
+    charts.week = createDoughnutChart('weekChart', ['Completed', 'Remaining'], [0, 40], ['#3B82F6', '#374151']);
     charts.daily = createBarChart('dailyChart', ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], [0, 0, 0, 0, 0, 0, 0]);
-    charts.subject = createPieChart('subjectChart', [], [], ['#4c51bf', '#4299e1', '#48bb78', '#ed8936', '#9f7aea', '#f56565']);
+    charts.subject = createPieChart('subjectChart', [], [], ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#EF4444']);
+    
+    elements.todayGoalText.textContent = "0/8 hours";
+    elements.weekGoalText.textContent = "0/40 hours";
+    elements.todayProgress.style.width = "0%";
+    elements.weekProgress.style.width = "0%";
 }
 
 // Process session data for charts
@@ -182,10 +228,11 @@ function processSessionData(sessions) {
         dailyData[date].hours += session.duration;
         
         // Subject data
-        if (!subjectData[session.subject]) {
-            subjectData[session.subject] = 0;
+        const subject = session.subject || 'Other';
+        if (!subjectData[subject]) {
+            subjectData[subject] = 0;
         }
-        subjectData[session.subject] += session.duration;
+        subjectData[subject] += session.duration;
         
         // Total hours
         totalHours += session.duration;
@@ -232,12 +279,20 @@ function updateCharts(sessions) {
     elements.weekHours.textContent = weeklyHours.toFixed(1);
     updateComparison('week', weeklyHours);
     
+    // Update progress bars
+    const todayPercent = Math.min(100, (todayHours / 8) * 100);
+    const weekPercent = Math.min(100, (weeklyHours / 40) * 100);
+    elements.todayProgress.style.width = `${todayPercent}%`;
+    elements.weekProgress.style.width = `${weekPercent}%`;
+    elements.todayGoalText.textContent = `${todayHours.toFixed(1)}/8 hours`;
+    elements.weekGoalText.textContent = `${weeklyHours.toFixed(1)}/40 hours`;
+    
     // Update or create today's chart
     if (charts.today) {
         charts.today.data.datasets[0].data = [todayHours, Math.max(0, 8 - todayHours)];
         charts.today.update();
     } else {
-        charts.today = createDoughnutChart('todayChart', ['Completed', 'Remaining'], [todayHours, Math.max(0, 8 - todayHours)], ['#4c51bf', '#e2e8f0']);
+        charts.today = createDoughnutChart('todayChart', ['Completed', 'Remaining'], [todayHours, Math.max(0, 8 - todayHours)], ['#8B5CF6', '#374151']);
     }
     
     // Update or create weekly chart
@@ -245,7 +300,7 @@ function updateCharts(sessions) {
         charts.week.data.datasets[0].data = [weeklyHours, Math.max(0, 40 - weeklyHours)];
         charts.week.update();
     } else {
-        charts.week = createDoughnutChart('weekChart', ['Completed', 'Remaining'], [weeklyHours, Math.max(0, 40 - weeklyHours)], ['#4299e1', '#e2e8f0']);
+        charts.week = createDoughnutChart('weekChart', ['Completed', 'Remaining'], [weeklyHours, Math.max(0, 40 - weeklyHours)], ['#3B82F6', '#374151']);
     }
     
     // Update or create daily chart
@@ -282,18 +337,19 @@ function updateComparison(type, currentValue) {
     
     if (previousValue === 0) {
         element.textContent = 'No previous data';
+        element.className = 'text-gray-400';
         return;
     }
     
     if (difference > 0) {
         element.textContent = `+${difference.toFixed(1)}hrs from last ${type}`;
-        element.className = 'text-gray-500 text-green-500';
+        element.className = 'text-green-400';
     } else if (difference < 0) {
         element.textContent = `${difference.toFixed(1)}hrs from last ${type}`;
-        element.className = 'text-gray-500 text-red-500';
+        element.className = 'text-red-400';
     } else {
         element.textContent = `Same as last ${type}`;
-        element.className = 'text-gray-500';
+        element.className = 'text-gray-400';
     }
 }
 
@@ -331,7 +387,16 @@ function createDoughnutChart(canvasId, labels, data, colors) {
         },
         options: {
             cutout: '70%',
-            plugins: { legend: { display: false } },
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                    titleFont: { family: 'Poppins', size: 14 },
+                    bodyFont: { family: 'Poppins', size: 12 },
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
             maintainAspectRatio: false
         }
     });
@@ -347,15 +412,33 @@ function createBarChart(canvasId, labels, data) {
             datasets: [{
                 label: 'Study Hours',
                 data,
-                backgroundColor: '#667eea',
-                borderRadius: 6
+                backgroundColor: '#8B5CF6',
+                borderRadius: 6,
+                borderSkipped: false
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } },
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                    titleFont: { family: 'Poppins', size: 14 },
+                    bodyFont: { family: 'Poppins', size: 12 },
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
             scales: {
-                y: { beginAtZero: true, title: { display: true, text: 'Hours' } }
+                y: { 
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                },
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                    ticks: { color: 'rgba(255, 255, 255, 0.7)' }
+                }
             },
             maintainAspectRatio: false
         }
@@ -372,19 +455,34 @@ function createPieChart(canvasId, labels, data) {
             datasets: [{
                 data,
                 backgroundColor: [
-                    '#4c51bf',
-                    '#4299e1',
-                    '#48bb78',
-                    '#ed8936',
-                    '#9f7aea',
-                    '#f56565'
+                    '#8B5CF6',
+                    '#3B82F6',
+                    '#10B981',
+                    '#F59E0B',
+                    '#EC4899',
+                    '#EF4444'
                 ].slice(0, labels.length),
                 borderWidth: 0
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { position: 'right' } },
+            plugins: { 
+                legend: { 
+                    position: 'right',
+                    labels: {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        font: { family: 'Poppins', size: 12 }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(31, 41, 55, 0.9)',
+                    titleFont: { family: 'Poppins', size: 14 },
+                    bodyFont: { family: 'Poppins', size: 12 },
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
             maintainAspectRatio: false
         }
     });
@@ -402,6 +500,212 @@ function showToast(message, isError = false) {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// Initialize stopwatch
+function initStopwatch() {
+    elements.startStopwatch.addEventListener('click', startStopwatch);
+    elements.pauseStopwatch.addEventListener('click', pauseStopwatch);
+    elements.resetStopwatch.addEventListener('click', resetStopwatch);
+    elements.saveStopwatch.addEventListener('click', saveStopwatchSession);
+}
+
+// Start stopwatch
+function startStopwatch() {
+    if (!stopwatch.running) {
+        stopwatch.startTime = Date.now() - stopwatch.elapsedTime;
+        stopwatch.timerInterval = setInterval(updateStopwatch, 100);
+        stopwatch.running = true;
+        
+        elements.startStopwatch.disabled = true;
+        elements.pauseStopwatch.disabled = false;
+        elements.resetStopwatch.disabled = false;
+        
+        elements.stopwatchDisplay.classList.add('timer-display');
+    }
+}
+
+// Update stopwatch display
+function updateStopwatch() {
+    stopwatch.elapsedTime = Date.now() - stopwatch.startTime;
+    const formattedTime = formatTime(stopwatch.elapsedTime);
+    elements.stopwatchDisplay.textContent = formattedTime;
+}
+
+// Format time (ms to HH:MM:SS)
+function formatTime(milliseconds) {
+    const totalSeconds = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Pause stopwatch
+function pauseStopwatch() {
+    if (stopwatch.running) {
+        clearInterval(stopwatch.timerInterval);
+        stopwatch.running = false;
+        
+        elements.startStopwatch.disabled = false;
+        elements.pauseStopwatch.disabled = true;
+        
+        elements.stopwatchDisplay.classList.remove('timer-display');
+    }
+}
+
+// Reset stopwatch
+function resetStopwatch() {
+    clearInterval(stopwatch.timerInterval);
+    stopwatch.running = false;
+    stopwatch.elapsedTime = 0;
+    elements.stopwatchDisplay.textContent = '00:00:00';
+    
+    elements.startStopwatch.disabled = false;
+    elements.pauseStopwatch.disabled = true;
+    elements.resetStopwatch.disabled = true;
+    
+    elements.stopwatchDisplay.classList.remove('timer-display');
+}
+
+// Save stopwatch session
+async function saveStopwatchSession() {
+    const user = auth.currentUser;
+    if (!user) {
+        showToast('Please sign in to save sessions', true);
+        return;
+    }
+    
+    const subject = elements.stopwatchSubjectInput.value.trim();
+    if (!subject) {
+        showToast('Please enter a subject', true);
+        return;
+    }
+    
+    const duration = stopwatch.elapsedTime / (1000 * 60 * 60); // Convert ms to hours
+    if (duration < 0.05) { // At least 3 minutes
+        showToast('Session too short to save', true);
+        return;
+    }
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    try {
+        const newSessionRef = dbRef.child('studySessions').push();
+        await newSessionRef.set({
+            userId: user.uid,
+            subject,
+            duration: parseFloat(duration.toFixed(2)),
+            date: today,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+        
+        showToast(`Saved ${duration.toFixed(2)} hours of ${subject}`);
+        resetStopwatch();
+        elements.stopwatchSubjectInput.value = '';
+    } catch (error) {
+        showToast('Error saving session', true);
+        console.error(error);
+    }
+}
+
+// Initialize pomodoro timer
+function initPomodoro() {
+    elements.startPomodoro.addEventListener('click', startPomodoro);
+    elements.pausePomodoro.addEventListener('click', pausePomodoro);
+    elements.resetPomodoro.addEventListener('click', resetPomodoro);
+    
+    elements.workTime.addEventListener('change', updatePomodoroSettings);
+    elements.breakTime.addEventListener('change', updatePomodoroSettings);
+    
+    updatePomodoroDisplay();
+}
+
+// Update pomodoro settings
+function updatePomodoroSettings() {
+    pomodoro.workDuration = parseInt(elements.workTime.value) || 25;
+    pomodoro.breakDuration = parseInt(elements.breakTime.value) || 5;
+    
+    if (!pomodoro.running) {
+        pomodoro.isWorkTime = true;
+        pomodoro.timeLeft = pomodoro.workDuration * 60;
+        updatePomodoroDisplay();
+    }
+}
+
+// Start pomodoro timer
+function startPomodoro() {
+    if (!pomodoro.running) {
+        pomodoro.running = true;
+        pomodoro.timerInterval = setInterval(updatePomodoro, 1000);
+        
+        elements.startPomodoro.disabled = true;
+        elements.pausePomodoro.disabled = false;
+        
+        elements.pomodoroStatus.textContent = pomodoro.isWorkTime ? 'Focus time! Work hard!' : 'Break time! Relax!';
+        elements.pomodoroDisplay.classList.add('timer-display');
+    }
+}
+
+// Update pomodoro timer
+function updatePomodoro() {
+    pomodoro.timeLeft--;
+    updatePomodoroDisplay();
+    
+    if (pomodoro.timeLeft <= 0) {
+        // Play sound
+        const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+        audio.play();
+        
+        // Switch mode
+        pomodoro.isWorkTime = !pomodoro.isWorkTime;
+        pomodoro.timeLeft = pomodoro.isWorkTime ? pomodoro.workDuration * 60 : pomodoro.breakDuration * 60;
+        
+        elements.pomodoroStatus.textContent = pomodoro.isWorkTime ? 'Focus time! Work hard!' : 'Break time! Relax!';
+        
+        // Flash display
+        elements.pomodoroDisplay.classList.remove('timer-display');
+        setTimeout(() => {
+            elements.pomodoroDisplay.classList.add('timer-display');
+        }, 100);
+    }
+}
+
+// Update pomodoro display
+function updatePomodoroDisplay() {
+    const minutes = Math.floor(pomodoro.timeLeft / 60);
+    const seconds = pomodoro.timeLeft % 60;
+    elements.pomodoroDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Pause pomodoro timer
+function pausePomodoro() {
+    if (pomodoro.running) {
+        clearInterval(pomodoro.timerInterval);
+        pomodoro.running = false;
+        
+        elements.startPomodoro.disabled = false;
+        elements.pausePomodoro.disabled = true;
+        
+        elements.pomodoroStatus.textContent = 'Paused';
+        elements.pomodoroDisplay.classList.remove('timer-display');
+    }
+}
+
+// Reset pomodoro timer
+function resetPomodoro() {
+    clearInterval(pomodoro.timerInterval);
+    pomodoro.running = false;
+    pomodoro.isWorkTime = true;
+    pomodoro.timeLeft = pomodoro.workDuration * 60;
+    
+    elements.startPomodoro.disabled = false;
+    elements.pausePomodoro.disabled = true;
+    
+    elements.pomodoroStatus.textContent = 'Ready to focus!';
+    updatePomodoroDisplay();
+    elements.pomodoroDisplay.classList.remove('timer-display');
 }
 
 // Set up event listeners
@@ -586,8 +890,8 @@ async function handleViewCode() {
 function displaySharedStats(userName, sessions) {
     if (sessions.length === 0) {
         elements.viewOthersContainer.innerHTML = `
-            <div class="bg-purple-50 rounded-lg p-6">
-                <p class="text-center text-gray-600">${userName} hasn't recorded any study sessions yet</p>
+            <div class="bg-gray-700/50 rounded-lg p-6 animate__animated animate__fadeIn">
+                <p class="text-center text-gray-400">${userName} hasn't recorded any study sessions yet</p>
             </div>
         `;
         elements.viewOthersContainer.classList.remove('hidden');
@@ -599,25 +903,25 @@ function displaySharedStats(userName, sessions) {
     const weeklyAverage = calculateWeeklyAverage(sessions);
     
     elements.viewOthersContainer.innerHTML = `
-        <div class="bg-purple-50 rounded-lg p-6 animate__animated animate__fadeIn">
-            <h4 class="text-lg font-semibold text-purple-800 mb-4">${userName}'s Study Stats</h4>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="bg-white rounded-lg p-4 shadow">
-                    <p class="text-gray-500">Total Hours</p>
-                    <p class="text-2xl font-bold text-purple-600">${totalHours.toFixed(1)}</p>
+        <div class="bg-gray-700/50 rounded-lg p-6 animate__animated animate__fadeIn">
+            <h4 class="text-lg font-semibold text-white mb-4">${userName}'s Study Stats</h4>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-800/50 rounded-lg p-4 shadow">
+                    <p class="text-gray-300 text-sm">Total Hours</p>
+                    <p class="text-2xl font-bold text-purple-400">${totalHours.toFixed(1)}</p>
                 </div>
-                <div class="bg-white rounded-lg p-4 shadow">
-                    <p class="text-gray-500">Favorite Subject</p>
-                    <p class="text-2xl font-bold text-purple-600">${favoriteSubject}</p>
+                <div class="bg-gray-800/50 rounded-lg p-4 shadow">
+                    <p class="text-gray-300 text-sm">Favorite Subject</p>
+                    <p class="text-2xl font-bold text-blue-400">${favoriteSubject}</p>
                 </div>
             </div>
-            <div class="mt-4 bg-white rounded-lg p-4 shadow">
-                <p class="text-gray-500">Weekly Average</p>
-                <p class="text-2xl font-bold text-purple-600">${weeklyAverage} hrs</p>
+            <div class="bg-gray-800/50 rounded-lg p-4 shadow mb-4">
+                <p class="text-gray-300 text-sm">Weekly Average</p>
+                <p class="text-2xl font-bold text-indigo-400">${weeklyAverage} hrs</p>
             </div>
-            <div class="mt-4 bg-white rounded-lg p-4 shadow">
-                <p class="text-gray-500">Subject Distribution</p>
-                <div class="h-48 mt-2">
+            <div class="bg-gray-800/50 rounded-lg p-4 shadow">
+                <p class="text-gray-300 text-sm mb-2">Subject Distribution</p>
+                <div class="h-48">
                     <canvas id="viewedSubjectChart"></canvas>
                 </div>
             </div>
@@ -665,19 +969,27 @@ function renderViewedSubjectChart(subjectData) {
             datasets: [{
                 data: Object.values(subjectData),
                 backgroundColor: [
-                    '#4c51bf',
-                    '#4299e1',
-                    '#48bb78',
-                    '#ed8936',
-                    '#9f7aea',
-                    '#f56565'
+                    '#8B5CF6',
+                    '#3B82F6',
+                    '#10B981',
+                    '#F59E0B',
+                    '#EC4899',
+                    '#EF4444'
                 ].slice(0, Object.keys(subjectData).length),
                 borderWidth: 0
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { position: 'bottom' } },
+            plugins: { 
+                legend: { 
+                    position: 'bottom',
+                    labels: {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        font: { family: 'Poppins', size: 10 }
+                    }
+                }
+            },
             maintainAspectRatio: false
         }
     });
@@ -693,7 +1005,7 @@ async function handleStudySessionSubmit(e) {
         return;
     }
     
-    const subject = elements.subjectSelect.value;
+    const subject = elements.subjectInput.value.trim();
     const duration = parseFloat(elements.durationInput.value);
     const date = elements.dateInput.value;
     
@@ -717,6 +1029,7 @@ async function handleStudySessionSubmit(e) {
         });
         
         showToast(`Added ${duration} hours of ${subject} study`);
+        elements.subjectInput.value = '';
         elements.durationInput.value = '1';
         elements.dateInput.valueAsDate = new Date();
     } catch (error) {
