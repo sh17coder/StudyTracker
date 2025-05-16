@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyTrack - Analytics Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-100 font-sans">
+    <div id="app" class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="gradient-bg text-white shadow-lg">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-graduation-cap text-2xl"></i>
+                    <span class="text-xl font-bold">StudyTrack</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="authBtn" class="px-4 py-2 bg-white text-purple-700 rounded-lg font-medium hover:bg-gray-100 transition-all">
+                        Sign In
+                    </button>
+                    <button id="shareBtn" class="px-4 py-2 bg-purple-800 text-white rounded-lg font-medium hover:bg-purple-900 transition-all hidden">
+                        <i class="fas fa-share-alt mr-2"></i>Share
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="container mx-auto px-4 py-8">
+            <!-- Dashboard Overview -->
+            <div id="dashboard" class="hidden animate__animated animate__fadeIn">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Today's Stats -->
+                    <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Today's Study</h3>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-3xl font-bold text-purple-600" id="todayHours">0<span class="text-lg">hrs</span></p>
+                                <p class="text-gray-500" id="todayComparison">No data yet</p>
+                            </div>
+                            <div class="w-16 h-16">
+                                <canvas id="todayChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weekly Stats -->
+                    <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">This Week</h3>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-3xl font-bold text-blue-600" id="weekHours">0<span class="text-lg">hrs</span></p>
+                                <p class="text-gray-500" id="weekComparison">No data yet</p>
+                            </div>
+                            <div class="w-16 h-16">
+                                <canvas id="weekChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Share Code -->
+                    <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Your Share Code</h3>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="shareCodeInput" class="flex-1 border rounded-lg px-4 py-2" readonly>
+                            <button id="copyCodeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-2">Share this code with others to view your stats</p>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- Daily Study Hours -->
+                    <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Daily Study Hours</h3>
+                        <div class="h-64">
+                            <canvas id="dailyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Subject Distribution -->
+                    <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Subject Distribution</h3>
+                        <div class="h-64">
+                            <canvas id="subjectChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Study Session -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover mb-8">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">Add Study Session</h3>
+                    <form id="studyForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-gray-700 mb-2">Subject</label>
+                            <select id="subjectSelect" class="w-full border rounded-lg px-4 py-2">
+                                <option value="math">Mathematics</option>
+                                <option value="science">Science</option>
+                                <option value="history">History</option>
+                                <option value="language">Language</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Duration (hours)</label>
+                            <input type="number" id="durationInput" step="0.25" min="0.25" max="12" class="w-full border rounded-lg px-4 py-2" value="1">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-2">Date</label>
+                            <input type="date" id="dateInput" class="w-full border rounded-lg px-4 py-2">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">
+                                Add Session
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- View Others Section -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition-all card-hover">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-4">View Other's Stats</h3>
+                    <div class="flex items-center space-x-2 mb-4">
+                        <input type="text" id="viewCodeInput" placeholder="Enter share code" class="flex-1 border rounded-lg px-4 py-2">
+                        <button id="viewCodeBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all">
+                            View
+                        </button>
+                    </div>
+                    <div id="viewOthersContainer" class="hidden">
+                        <!-- Other's stats will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auth Section -->
+            <div id="authSection" class="max-w-md mx-auto bg-white rounded-xl shadow-md p-8 animate__animated animate__fadeIn">
+                <h2 class="text-2xl font-bold text-center text-gray-800 mb-8">Welcome to StudyTrack</h2>
+                <div id="loginForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2">Email</label>
+                        <input type="email" id="emailInput" class="w-full border rounded-lg px-4 py-2">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 mb-2">Password</label>
+                        <input type="password" id="passwordInput" class="w-full border rounded-lg px-4 py-2">
+                    </div>
+                    <button id="loginBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all mb-4">
+                        Sign In
+                    </button>
+                    <p class="text-center text-gray-600">Don't have an account? <button id="showRegisterBtn" class="text-purple-600 hover:underline">Register</button></p>
+                </div>
+
+                <div id="registerForm" class="hidden">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2">Name</label>
+                        <input type="text" id="nameInput" class="w-full border rounded-lg px-4 py-2">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2">Email</label>
+                        <input type="email" id="regEmailInput" class="w-full border rounded-lg px-4 py-2">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-gray-700 mb-2">Password (min 6 chars)</label>
+                        <input type="password" id="regPasswordInput" class="w-full border rounded-lg px-4 py-2">
+                    </div>
+                    <button id="registerBtn" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all mb-4">
+                        Register
+                    </button>
+                    <p class="text-center text-gray-600">Already have an account? <button id="showLoginBtn" class="text-purple-600 hover:underline">Sign In</button></p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="gradient-bg text-white py-6">
+            <div class="container mx-auto px-4 text-center">
+                <p>© 2023 StudyTrack - All rights reserved</p>
+                <div class="flex justify-center space-x-4 mt-4">
+                    <a href="#" class="hover:text-purple-300 transition-all"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="hover:text-purple-300 transition-all"><i class="fab fa-instagram"></i></a>
+                    <a href="#" class="hover:text-purple-300 transition-all"><i class="fab fa-github"></i></a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <!-- Firebase Config -->
+    <script src="firebase-config.js"></script>
+    
+    <!-- Main App JS -->
+    <script src="app.js"></script>
+</body>
+</html>
